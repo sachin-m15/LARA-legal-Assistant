@@ -1,6 +1,7 @@
 # LARA/legal_rag/retrieval.py
 
 import os
+from pathlib import Path
 from langchain_core.tools import tool
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -12,7 +13,9 @@ from typing import TypedDict, Annotated, List, Any
 import operator
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from the root directory
+root_dir = Path(__file__).resolve().parent.parent.parent
+load_dotenv(root_dir / '.env')
 
 
 # -------------------------

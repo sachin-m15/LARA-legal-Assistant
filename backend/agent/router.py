@@ -29,10 +29,10 @@ def route_query(role: str, user_query: str, thread_id: str):
     if role == "Lawyer":
         print("Routing to Lawyer Agent...")
         return lawyer_app.invoke(
-            input_state, config={"configurable": {"thread_id": thread_id}}
+            input_state, config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
         )
     else:
         print("Routing to Citizen Agent...")
         return citizen_app.invoke(
-            input_state, config={"configurable": {"thread_id": thread_id}}
+            input_state, config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
         )

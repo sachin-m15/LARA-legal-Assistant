@@ -10,11 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@clerk/clerk-react": "^5.53.4",
     "@tailwindcss/vite": "^4.1.13",
     "axios": "^1.12.2",
     "lucide-react": "^0.544.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-router-dom": "^7.9.5",
     "tailwindcss": "^4.1.13",
     "three": "^0.180.0",
     "uuid": "^13.0.0"
