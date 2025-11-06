@@ -150,14 +150,8 @@ function ChatInterface() {
       <FloatingParticles />
       <FloatingImages />
       
-      <div className="absolute inset-0 bg-gradient-to-t from-white/30 to-transparent pointer-events-none z-1" />
-      
-      
-      
-      
-      
-      
-      <div className="relative z-10 flex flex-col min-h-screen">
+      <div className="absolute inset-0 bg-gradient-to-t from-white/30 to-transparent pointer-events-none z-1" />      
+      <div className="relative z-10 flex flex-col h-screen">
         {/* Header */}
         <div className="bg-white/80 backdrop-blur-xl border-b border-gray-200 shadow-2xl">
           <div className="px-6 py-6 flex items-center justify-between">
