@@ -1,54 +1,75 @@
-# L.A.R.A - Legal Analysis Research Assistant
+# ⚖️ L.A.R.A – Legal Analysis Research Assistant
 
-## Overview
+## 🧠 Overview
+**L.A.R.A (Legal Analysis and Research Assistant)** is an intelligent, Python-based backend application designed to help **lawyers, researchers, and citizens** conduct deep legal research and case studies based on **Indian law**.  
 
-L.A.R.A is an intelligent, Python-based application designed to assist legal professionals and citizens in conducting comprehensive research and case studies based on Indian law. Inspired by the principles of deep research agents, this tool automates the legal analysis workflow by transforming user queries into precise search terms, retrieving information from multiple sources, and synthesizing a cohesive, citable legal analysis.
+Inspired by the concept of **autonomous legal research agents**, L.A.R.A automates the end-to-end process — transforming user queries into precise legal search terms, retrieving authoritative data from multiple sources, and generating a **structured, citable legal analysis**.  
 
-The system is built using a modular state graph orchestrated by **LangGraph** to ensure a scalable and maintainable architecture.
+The system uses **LangGraph** for modular agent orchestration and **Retrieval-Augmented Generation (RAG)** to combine internal legal corpora with live web data.
 
-## Features
+---
 
-* **Intelligent Query Rewriting:** Automatically reformulates legal problems or case descriptions into optimized, legally precise search queries tailored to the user's role.
-* **Role-Based Agents:** Offers two specialized workflows for **Common Citizens** (for general legal guidance) and **Lawyers** (for in-depth case analysis).
-* **Hybrid Data Retrieval:** Queries a pre-indexed FAISS vector store containing a vast corpus of Indian laws and uses a web search API for supplementary information and recent developments.
-* **Iterative Research:** The system dynamically evaluates retrieved information, identifies knowledge gaps, and generates new search queries in a continuous loop until a comprehensive analysis is achieved.
-* **Cohesive Legal Analysis:** Combines findings from both internal documents and web sources into a single, structured report.
-* **Citations and Recommendations:** The final output includes clear citations to relevant legal documents and web pages, along with a summary of key findings and actionable recommendations.
+## 🚀 Features
+- **Intelligent Query Rewriting:** Reformulates user-entered legal problems into precise, law-aware search queries.  
+- **Role-Based Agents:**  
+  - *Citizen Mode* – For general legal guidance and awareness.  
+  - *Lawyer Mode* – For in-depth case law analysis, statutory interpretation, and references.  
+- **Hybrid Data Retrieval:** Combines FAISS-based local document search with live web lookups via APIs (e.g., Tavily Search).  
+- **Iterative Legal Reasoning:** Dynamically refines its understanding of a legal problem and continues searching until it builds a complete answer.  
+- **Structured Legal Analysis:** Synthesizes case law, acts, and judgments into clear, referenced summaries.  
+- **Citation System:** Each generated report contains references to primary sources and acts for validation and research traceability.
 
-## Tech Stack
+---
 
-* **Framework:** LangGraph (for agent orchestration), Streamlit (for the UI)
-* **Language Models:** Groq (Llama-3.1-8b-instant)
-* **RAG:** FAISS (for vector search), Tavily Search API (for web search)
-* **Development:** Python, `dotenv`
+## 🧰 Tech Stack
 
-## Project Structure
+| Component | Technology Used |
+|------------|----------------|
+| **Backend Framework** | FastAPI (Python) |
+| **Agent Orchestration** | LangGraph |
+| **Embeddings + Search** | FAISS Vector Store |
+| **Language Model** | Groq (LLaMA 3.1–8B Instant) |
+| **Frontend** | React + Tailwind CSS |
+| **APIs Used** | Tavily Search API |
+| **Environment Management** | `dotenv` |
+
+---
+
+## 🏗️ Project Structure
+
 ```
-LARA/
-├── app.py                      # Main Streamlit app - entry point for the UI
+L.A.R.A-Legal-Analysis-Research-Agent/
 │
-├── agent/                      # AI agents & workflows
-│   ├── init.py             # Makes the 'agent' directory a Python package
-│   ├── citizen_agent.py        # Agent workflow for citizens (legal awareness, guidance)
-│   ├── lawyer_agent.py         # Agent workflow for lawyers (case insights, references)
-│   └── router.py               # Routes requests to the right agent based on user role
+├── backend/  
+│   ├── agent/
+│   │   ├── __init__.py
+│   │   ├── citizen_agent.py
+│   │   ├── lawyer_agent.py
+│   │   └── router.py
+│   │
+│   ├── data/
+│   │   ├── faiss_index/
+│   │   ├── indian_law_docs/
+│   │   └── data_converter.py
+│   │
+│   ├── legal_rag/
+│   │   ├── query_rewriter.py
+│   │   ├── retrieval.py
+│   │   └── summarizer.py
+│   ├── raw_data/
+│   │
+│   ├── .env
+│   ├── app.py
+│   ├── db.py
+│   ├── model_score_checker.py
 │
-├── models_score_checker.py     # Model evaluation + performance visualization in Streamlit
-│
-├── legal_rag/                  # Retrieval-Augmented Generation (RAG) modules
-│   ├── retrieval.py            # FAISS-based retrieval of law documents
-│   ├── query_rewriter.py       # Rewrites queries for better search results
-│   └── summarizer.py           # Summarizes results, lawyer-specific reports
-│
-├── data/                       # Indexed & raw data
-│   ├── faiss_index/            # Vector DB (FAISS index) for retrieval
-│   ├── indian_law_docs/        # Raw Indian legal documents
-│   └── data_converter.py       # Converts PDFs/JSON into text for indexing
-│
-├── raw_data/                   # Original PDFs & JSON files (source legal docs)
-│
-├── requirements.txt            # Dependencies list (install with pip)
-└── README.md                   # Documentation
+├── frontend/
+│   ├── src/
+│   └── index.html
+│   
+├── .gitignore
+└── README.md
+
 ```
 
 
@@ -56,41 +77,94 @@ LARA/
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/sachin-m15/L.A.R.A-Legal-Analysis-Research-Assistant-.git](https://github.com/sachin-m15/L.A.R.A-Legal-Analysis-Research-Assistant-.git)
-    cd L.A.R.A-Legal-Analysis-Research-Assistant-
+    git clone https://github.com/Rashi-Dwivedi1812/L.A.R.A-Legal-Analysis-Research-Assistant.git
+    cd L.A.R.A-Legal-Analysis-Research-Assistant
     ```
 
-2.  **Create and activate a virtual environment:**
+2.  **Backend Setup**
     ```bash
+    cd backend
     python -m venv venv
-    # On Linux/macOS
-    source venv/bin/activate
-    # On Windows
-    venv\Scripts\activate
-    ```
-
-3.  **Install dependencies:**
-    ```bash
+    venv\Scripts\activate  # (on Windows)
     pip install -r requirements.txt
     ```
 
-4.  **Set Environment Variables:**
-    Create a `.env` file in the root directory and add your API keys. You can obtain these from their respective websites.
+3.  **Set Environment Variables**
+   Create a .env file inside /backend:
     ```
     GROQ_API_KEY="your_grok_api_key_here"
     TAVILY_API_KEY="your_tavily_api_key_here"
     ```
 
-5.  **Prepare your Legal Data:**
+4.  **Prepare Legal Data**
     * Place your legal documents (PDFs, JSONs) in the `raw_data/` directory.
     * Run the `data_converter.py` script to process them and create the FAISS index.
+      
     ```bash
     python data/data_converter.py
+    python data/faiss_index/faiss_indexer.py
     ```
 
-## How to Run
+5. **Run the Backend**
+   ```
+   uvicorn app:app --reload
+   ```
+   Your FastAPI backend will now be available at:
+   ```
+   http://127.0.0.1:8000
+   ```
 
-After installation and setup, run the application from the root directory:
+## 💻 Frontend (React)
 
+1. **Navigate to Frontend**
+    ```bash
+    cd frontend
+    npm install
+    npm run dev
+
+    ```
+
+2. **Access the UI**
+    ```bash
+    http://localhost:5173
+    ```
+---
+
+## 📊 Example Queries
+- What were the key provisions of the Railways (Amendment) Act, 2025?
+- Summarize the judgment in Chunna @ Charan Singh vs State of M.P.
+- Explain Section 2A introduced in the Railways Amendment Act, 2025.
+- How does the 2025 Amendment redefine the Railway Board’s powers?
+- Compare provisions under IPC Sections 302 and 304B with recent case law.
+
+## 🧩 Future Enhancements
+- 🧠 Multi-document synthesis for cross-case reasoning
+- ⚖️ Integration with Indian Kanoon & Law Commission datasets
+- 🕵️‍♀️ Named entity recognition for legal citations
+- 🔗 Graph-based linking between Acts, Sections, and Cases
+- 🌐 Fine-tuned legal LLM for Indian judiciary text
+
+---
+
+## 🏁 Contributing
+Pull requests are welcome!
+To contribute:
 ```bash
-streamlit run app.py
+git checkout -b feature/your-feature
+git commit -m "Add feature: your-feature"
+git push origin feature/your-feature
+```
+
+## 👥 Collaborators  
+
+Meet the brilliant minds behind **L.A.R.A – Legal Analysis Research Assistant** ⚖️  
+
+| 👩‍💻 Name | 🎯 Contribution Focus | 🔗 Links |
+|------------|---------|----------|
+| 🧠 **Rashi Dwivedi** | Core Development • AI Workflow • Backend Systems | [![GitHub](https://img.shields.io/badge/GitHub-Rashi--Dwivedi1812-black?logo=github)](https://github.com/Rashi-Dwivedi1812) |
+| ⚙️ **Sachin Mishra** | RAG Pipeline • FAISS Indexing • Data Engineering | [![GitHub](https://img.shields.io/badge/GitHub-sachin--m15-black?logo=github)](https://github.com/sachin-m15) |
+| 🧩 **Janvi Gupta** | Frontend Experience • Research Support • Documentation | [![GitHub](https://img.shields.io/badge/GitHub-janviii09-black?logo=github)](https://github.com/janviii09) |
+
+> 💡 *“Alone we can do so little; together we can do so much.” – Helen Keller*
+
+  
