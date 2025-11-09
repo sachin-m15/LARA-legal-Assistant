@@ -131,10 +131,11 @@ L.A.R.A-Legal-Analysis-Research-Agent/
 ---
 
 ## 📊 Example Queries
-- What were the key provisions of the Railways (Amendment) Act, 2025?
+- The Securities and Exchange Board of India (SEBI) Act, 1992.
+- Foreign Exchange Management Act (FEMA), 1999
 - Summarize the judgment in Chunna @ Charan Singh vs State of M.P.
 - Explain Section 2A introduced in the Railways Amendment Act, 2025.
-- How does the 2025 Amendment redefine the Railway Board’s powers?
+- The Insolvency and Bankruptcy Code (IBC).
 - Compare provisions under IPC Sections 302 and 304B with recent case law.
 
 ## 🧩 Future Enhancements
@@ -142,7 +143,6 @@ L.A.R.A-Legal-Analysis-Research-Agent/
 - ⚖️ Integration with Indian Kanoon & Law Commission datasets
 - 🕵️‍♀️ Named entity recognition for legal citations
 - 🔗 Graph-based linking between Acts, Sections, and Cases
-- 🌐 Fine-tuned legal LLM for Indian judiciary text
 
 ---
 
