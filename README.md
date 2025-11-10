@@ -1,9 +1,9 @@
 # ⚖️ L.A.R.A – Legal Analysis Research Assistant
 
 ## 🧠 Overview
-**L.A.R.A (Legal Analysis and Research Assistant)** is an intelligent, Python-based backend application designed to help **lawyers, researchers, and citizens** conduct deep legal research and case studies based on **Indian law**.  
+**L.A.R.A (Legal Analysis and Research Assistant)** is an intelligent, Python-based backend application designed to help **lawyers, researchers, and citizens** conduct deep legal research and case studies based on **Indian law**.
 
-Inspired by the concept of **autonomous legal research agents**, L.A.R.A automates the end-to-end process — transforming user queries into precise legal search terms, retrieving authoritative data from multiple sources, and generating a **structured, citable legal analysis**.  
+Inspired by the concept of **autonomous legal research agents**, L.A.R.A automates the end-to-end process — transforming user queries into precise legal search terms, retrieving authoritative data from multiple sources, and generating a **structured, citable legal analysis** that is **self-evaluated with a real-time confidence score.**
 
 The system uses **LangGraph** for modular agent orchestration and **Retrieval-Augmented Generation (RAG)** to combine internal legal corpora with live web data.
 
@@ -18,6 +18,7 @@ The system uses **LangGraph** for modular agent orchestration and **Retrieval-Au
 - **Iterative Legal Reasoning:** Dynamically refines its understanding of a legal problem and continues searching until it builds a complete answer.  
 - **Structured Legal Analysis:** Synthesizes case law, acts, and judgments into clear, referenced summaries.  
 - **Citation System:** Each generated report contains references to primary sources and acts for validation and research traceability.
+- **In-line Confidence Score:**Runs an in-line evaluator at the end of every query to provide a real-time "Confidence Score" (based on relevance, faithfulness, and clarity) directly to the user, building trust in the generated answer.
 
 ---
 
@@ -29,8 +30,11 @@ The system uses **LangGraph** for modular agent orchestration and **Retrieval-Au
 | **Agent Orchestration** | LangGraph |
 | **Embeddings + Search** | FAISS Vector Store |
 | **Language Model** | Groq (LLaMA 3.1–8B Instant) |
-| **Frontend** | React + Tailwind CSS |
+| **Embeddings (Vector DB)** | FAISS Vector Store |
+| **Embeddings (Evaluation)** |	Sentence-Transformers |
 | **APIs Used** | Tavily Search API |
+| **In-line Evaluation** | LLM-as-a-Judge (Groq) + Semantic Similarity |
+| **Frontend** | React + Tailwind CSS |
 | **Environment Management** | `dotenv` |
 
 ---
