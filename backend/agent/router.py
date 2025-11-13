@@ -36,13 +36,22 @@ def route_query(role: str, user_query: str, thread_id: str):
         "role": role,  # <-- Pass the role into the state
     }
 
-    if role == "Lawyer":
+    # Normalize role to avoid case-sensitivity issues between frontend and backend
+    normalized_role = (role or '').strip().lower()
+
+    if normalized_role == "lawyer":
         print("Routing to Lawyer Agent...")
         result = lawyer_app.invoke(
             input_state, config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
         )
-    else:
+    elif normalized_role == "citizen":
         print("Routing to Citizen Agent...")
+        result = citizen_app.invoke(
+            input_state, config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
+        )
+    else:
+        # If role is unrecognized, default to Citizen behavior but log a warning.
+        print(f"Warning: Unrecognized role '{role}' received. Defaulting to Citizen Agent.")
         result = citizen_app.invoke(
             input_state, config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
         )

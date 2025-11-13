@@ -36,17 +36,6 @@ function ChatInterface() {
       content: `Welcome ${user?.firstName || 'back'} to L.A.R.A! I am your AI Legal Assistant. How can I help you today? Please select your role and ask a question below.`,
       timestamp: new Date()
     }]);
-
-    // Save new thread immediately when user logs in or component mounts
-    if (user) {
-      axios.post('http://127.0.0.1:8000/save_thread', {
-        user_id: user.id,
-        thread_id: newThreadId,
-        title: 'New Chat'
-      }).catch(error => {
-        console.error('Error saving new thread:', error);
-      });
-    }
   }, [user]);
 
   const handleSubmit = async (e) => {
@@ -60,7 +49,9 @@ function ChatInterface() {
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+  // Determine if this will be the first real user message in this thread
+  const isFirstRealMessage = messages.length <= 1; // welcome msg counts as 1
+  setMessages(prev => [...prev, userMessage]);
     const currentQuery = query;
     setQuery('');
     setIsLoading(true);
@@ -80,13 +71,20 @@ function ChatInterface() {
       };
       setMessages(prev => [...prev, botMessage]);
 
-      // Save thread to database after first message with proper title
-      if (messages.length === 1 && user) { // Only the welcome message exists
-        await axios.post('http://127.0.0.1:8000/save_thread', {
-          user_id: user.id,
-          thread_id: threadId,
-          title: currentQuery.length > 50 ? currentQuery.substring(0, 50) + '...' : currentQuery
-        });
+      // Save thread to database only when the user sends the first real message
+      if (isFirstRealMessage && user) {
+        try {
+          await axios.post('http://127.0.0.1:8000/save_thread', {
+            user_id: user.id,
+            thread_id: threadId,
+            title: currentQuery.length > 50 ? currentQuery.substring(0, 50) + '...' : currentQuery
+          });
+
+          // Trigger sidebar refresh so the history reflects the newly saved thread
+          setSidebarRefreshTrigger(prev => prev + 1);
+        } catch (error) {
+          console.error('Error saving thread:', error);
+        }
       }
 
     } catch (error) {
@@ -118,17 +116,8 @@ function ChatInterface() {
     }]);
     setThreadId(newThreadId);
     setCurrentThreadFilter(newThreadId); // Filter to show only this new thread
-
-    // Save new thread for new chat
-    if (user) {
-      axios.post('http://127.0.0.1:8000/save_thread', {
-        user_id: user.id,
-        thread_id: newThreadId,
-        title: 'New Chat'
-      }).catch(error => {
-        console.error('Error saving new thread:', error);
-      });
-    }
+    // Do not persist new empty threads here. The thread will be saved
+    // when the user sends their first real message (handled in handleSubmit).
   };
 
   const handleThreadSelect = (newThreadId, threadMessages) => {
@@ -143,6 +132,33 @@ function ChatInterface() {
       setCurrentThreadFilter(null); // Clear filter when opening sidebar to show all history
       setSidebarRefreshTrigger(prev => prev + 1); // Force sidebar re-render to fetch all threads
     }
+  };
+
+  // When the user changes role (Citizen <-> Lawyer), start a new chat/thread.
+  // This prevents mixing messages from different roles in the same conversation.
+  const handleRoleChange = (newRole) => {
+    if (!newRole || newRole === userRole) return;
+
+    // Create a fresh thread and welcome message for the new role
+    const newThreadId = crypto.randomUUID();
+    setUserRole(newRole);
+    setThreadId(newThreadId);
+
+    const welcomeMessage = {
+      id: crypto.randomUUID(),
+      type: 'bot',
+      content: `Welcome ${user?.firstName || 'back'} to L.A.R.A! You switched to ${newRole === 'lawyer' ? 'Lawyer' : 'Citizen'} mode. How can I help you in this role?`,
+      timestamp: new Date()
+    };
+
+    // Reset messages to only the role-specific welcome message and
+    // set a local filter so the UI focuses on the new chat.
+    setMessages([welcomeMessage]);
+    setCurrentThreadFilter(newThreadId);
+
+    // Do not persist the thread until the user sends their first message
+    // but force the sidebar to refresh so the UI reflects the change.
+    setSidebarRefreshTrigger(prev => prev + 1);
   };
 
   return (
@@ -225,7 +241,7 @@ function ChatInterface() {
                           type="radio"
                           value={value}
                           checked={userRole === value}
-                          onChange={(e) => setUserRole(e.target.value)}
+                          onChange={() => handleRoleChange(value)}
                           className="sr-only"
                         />
                         <Icon className={`w-4 h-4 transition-colors ${userRole === value ? 'text-white' : 'text-gray-600 group-hover:text-gray-800'}`} />
