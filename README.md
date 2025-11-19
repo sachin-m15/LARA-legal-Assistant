@@ -135,7 +135,7 @@ L.A.R.A-Legal-Analysis-Research-Agent/
 ---
 
 ## 📊 Example Queries
-- The Securities and Exchange Board of India (SEBI) Act, 1992.
+- The Securities and Exchange Board of India (SEBI) Act, 1992. 
 - Foreign Exchange Management Act (FEMA), 1999
 - Summarize the judgment in Chunna @ Charan Singh vs State of M.P.
 - Explain Section 2A introduced in the Railways Amendment Act, 2025.
