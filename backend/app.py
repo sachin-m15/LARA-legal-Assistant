@@ -8,6 +8,8 @@ from pydantic import BaseModel
 # and your Python path is set up correctly.
 from agent.router import route_query
 from db import save_thread, save_message, get_user_threads, get_thread_messages, delete_thread
+import asyncio
+asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # ----------------------------
 #      1. INITIALIZATION
@@ -43,6 +45,7 @@ class QueryRequest(BaseModel):
     user_query: str
     role: str
     thread_id: str
+    user_id: str
 
 class QueryResponse(BaseModel):
     final_analysis: str
@@ -76,10 +79,24 @@ async def process_legal_query(request: QueryRequest):
     Receives a legal query from the frontend, processes it using the agent router,
     and returns the final analysis.
     """
+
     print(f"Received query for thread_id: {request.thread_id}")
+
     try:
-        # --- Call your core application logic ---
-        # This is the same function your Streamlit app was calling.
+        # ---------------------------------------------
+        # 1) SAVE THREAD BEFORE LONG PROCESSING STARTS
+        # ---------------------------------------------
+        # This ensures the thread exists instantly,
+        # so refreshing the frontend will NEVER show empty history.
+        save_thread(
+            user_id=request.user_id,
+            thread_id=request.thread_id,
+            title=request.user_query[:50]
+        )
+
+        # ---------------------------------------------
+        # 2) LONG PROCESSING BEGINS
+        # ---------------------------------------------
         result = route_query(
             role=request.role,
             user_query=request.user_query,
@@ -92,7 +109,9 @@ async def process_legal_query(request: QueryRequest):
             "Sorry, I couldn't generate a final analysis."
         )
 
-        # Save messages to database
+        # ---------------------------------------------
+        # 3) SAVE MESSAGES
+        # ---------------------------------------------
         save_message(request.thread_id, 'user', request.user_query)
         save_message(request.thread_id, 'bot', final_analysis)
 
@@ -102,12 +121,12 @@ async def process_legal_query(request: QueryRequest):
         )
 
     except Exception as e:
-        # If anything goes wrong in your agent, send back a detailed error
         print(f"An error occurred: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred while processing your request: {e}"
         )
+
 
 @app.post("/get_chat_history")
 async def get_chat_history(request: ChatHistoryRequest):

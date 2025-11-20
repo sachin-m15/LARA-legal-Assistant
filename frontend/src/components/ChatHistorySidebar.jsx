@@ -10,6 +10,17 @@ function ChatHistorySidebar({ isOpen, onClose, onThreadSelect, currentThreadId, 
 
   useEffect(() => {
     if (isOpen && user) {
+        // 1) Load threads instantly from cache BEFORE backend fetch
+const cached = localStorage.getItem("LARA_SIDEBAR_THREADS");
+if (cached) {
+  try {
+    const parsed = JSON.parse(cached);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      setThreads(parsed);   // SHOW IMMEDIATELY (prevents blank / loading)
+    }
+  } catch {}
+}
+
       // If there's an optimistic thread, ensure it's visible immediately while we fetch.
       if (optimisticThread) {
         setThreads(prev => {
@@ -17,6 +28,7 @@ function ChatHistorySidebar({ isOpen, onClose, onThreadSelect, currentThreadId, 
 return [optimisticThread, ...filtered];
         });
       }
+    
       fetchChatHistory();
     }
   }, [isOpen, user, refreshTrigger, optimisticThread]);
@@ -24,6 +36,7 @@ return [optimisticThread, ...filtered];
  const fetchChatHistory = async () => {
   if (!user) return;
   setLoading(true);
+
   try {
     const response = await axios.post('http://127.0.0.1:8000/get_chat_history', {
       user_id: user.id
@@ -31,7 +44,7 @@ return [optimisticThread, ...filtered];
 
     let serverThreads = response.data.threads || [];
 
-    // Merge optimistic thread at front if needed
+    // Merge optimistic thread
     if (
       optimisticThread &&
       !serverThreads.some(t => t.thread_id === optimisticThread.thread_id)
@@ -39,24 +52,27 @@ return [optimisticThread, ...filtered];
       serverThreads = [optimisticThread, ...serverThreads];
     }
 
-    // IMPORTANT:
-    // - If server returns threads → use them.
-    // - If server returns [] while we already have threads in state,
-    //   KEEP the previous threads so the UI doesn't go empty.
     setThreads(prev => {
       if (serverThreads.length === 0) {
-  return prev;   // ALWAYS keep old history
-}
-return serverThreads;
-
+        return prev; // never let UI go empty
+      }
+      return serverThreads;
     });
+
+    // ⭐⭐⭐ VERY IMPORTANT ⭐⭐⭐
+    // SAVE LATEST HISTORY TO LOCALSTORAGE
+    if (serverThreads.length > 0) {
+      localStorage.setItem("LARA_SIDEBAR_THREADS", JSON.stringify(serverThreads));
+    }
+
   } catch (error) {
     console.error('Error fetching chat history:', error);
-    // On error, keep previous threads – don't clear them
+    // preserve old UI
   } finally {
     setLoading(false);
   }
 };
+
 
  const handleThreadSelect = (thread) => {
   onThreadSelect(thread.thread_id);

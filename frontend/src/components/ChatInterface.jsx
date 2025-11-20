@@ -36,90 +36,176 @@ function ChatInterface() {
     navigate('/');
   };
 
-  useEffect(() => {
-    // On user change / first load, try to preload the latest saved thread from the backend.
-    // If there is existing history, load the most-recent thread and its messages into UI and cache.
-    // Otherwise, initialize a fresh welcome thread.
-    const init = async () => {
-      const welcomeText = `Welcome ${user?.firstName || 'back'} to L.A.R.A! I am your AI Legal Assistant. How can I help you today? Please select your role and ask a question below.`;
+ useEffect(() => {
+  // Run once per user change
+  (async () => {
+    const welcomeText = `Welcome ${user?.firstName || 'back'} to L.A.R.A! I am your AI Legal Assistant. How can I help you today? Please select your role and ask a question below.`;
 
-      if (!user) {
-        // Not signed in yet — create a transient welcome thread until we have a user
+    // 1) RESTORE FROM LOCAL STORAGE FIRST (so refresh while processing still shows UI)
+    const savedCache = localStorage.getItem("LARA_CACHE");
+    const savedLoading = localStorage.getItem("LARA_LOADING");
+    const savedThread = localStorage.getItem("LARA_CURRENT_THREAD");
+
+    if (savedCache) {
+  try {
+    const raw = JSON.parse(savedCache);
+
+     Object.keys(parsed).forEach(tid => {
+    parsed[tid] = parsed[tid].map(m => ({
+      ...m,
+      timestamp: new Date(m.timestamp)
+    }));
+  });
+
+  setThreadsCache(parsed);
+    setThreadsCache(fixed);
+  } catch (e) {
+    console.error("Failed to parse LARA_CACHE:", e);
+  }
+}
+
+
+    if (savedLoading) {
+      try {
+        const parsed = JSON.parse(savedLoading);
+        if (Array.isArray(parsed)) {
+          setLoadingThreads(parsed);
+        }
+      } catch (e) {
+        console.error("Failed to parse LARA_LOADING:", e);
+      }
+    }
+
+  if (savedThread) {
+  setThreadId(savedThread);
+  const parsedCache = savedCache ? JSON.parse(savedCache) : null;
+  const cachedMessages = parsedCache ? parsedCache[savedThread] : null;
+
+  if (cachedMessages && cachedMessages.length > 0) {
+    // FIX: Convert timestamp strings into Date objects
+    const fixedMessages = cachedMessages.map(msg => ({
+      ...msg,
+      timestamp: new Date(msg.timestamp)
+    }));
+
+    setMessages(fixedMessages);
+
+    // Also fix the cached version so it doesn't break again
+    setThreadsCache(prev => ({
+      ...prev,
+      [savedThread]: fixedMessages
+    }));
+  }
+}
+
+    // 2) IF NO USER, SHOW LOCAL/WELCOME ONLY AND STOP
+    if (!user) {
+      // If we already restored something from cache, don't overwrite it
+      if (!savedThread) {
         const newThreadId = crypto.randomUUID();
         setThreadId(newThreadId);
         const welcomeMsg = {
           id: crypto.randomUUID(),
-          type: 'bot',
+          type: "bot",
           content: welcomeText,
-          timestamp: new Date()
+          timestamp: new Date(),
         };
         setMessages([welcomeMsg]);
-        setThreadsCache(prev => ({ ...prev, [newThreadId]: [welcomeMsg] }));
+        setThreadsCache((prev) => ({
+          ...prev,
+          [newThreadId]: [welcomeMsg],
+        }));
+      }
+      return;
+    }
+
+    // 3) FETCH SERVER HISTORY (but DON'T clear what we already show if server has nothing)
+    try {
+      const resp = await axios.post("http://127.0.0.1:8000/get_chat_history", {
+        user_id: user.id,
+      });
+      const threads = resp.data.threads || [];
+
+      if (threads.length === 0) {
+        // If we already showed cached stuff, leave it as-is
+        if (!savedThread) {
+          const newThreadId = crypto.randomUUID();
+          setThreadId(newThreadId);
+          const welcomeMsg = {
+            id: crypto.randomUUID(),
+            type: "bot",
+            content: welcomeText,
+            timestamp: new Date(),
+          };
+          setMessages([welcomeMsg]);
+          setThreadsCache((prev) => ({
+            ...prev,
+            [newThreadId]: [welcomeMsg],
+          }));
+        }
         return;
       }
 
-      try {
-        const resp = await axios.post('http://127.0.0.1:8000/get_chat_history', { user_id: user.id });
-        const threads = resp.data.threads || [];
-        if (threads.length > 0) {
-          // Sort by updated_at desc and pick latest
-          threads.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-          const latest = threads[0];
-          setThreadId(latest.thread_id);
+      // Pick latest thread from server
+      threads.sort(
+        (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
+      );
+      const latest = threads[0];
 
-          // Fetch messages for the latest thread
-          try {
-            const msgsResp = await axios.post('http://127.0.0.1:8000/get_thread_messages', { thread_id: latest.thread_id });
-            const loadedMessages = msgsResp.data.messages.map(msg => ({
-              id: crypto.randomUUID(),
-              type: msg.role === 'user' ? 'user' : 'bot',
-              content: msg.content,
-              timestamp: new Date(msg.timestamp)
-            }));
-            setMessages(loadedMessages);
-            setThreadsCache(prev => ({ ...prev, [latest.thread_id]: loadedMessages }));
-          } catch (err) {
-            console.error('Failed to load messages for latest thread:', err);
-            // Fallback to a welcome message if fetch fails
-            const newThreadId = crypto.randomUUID();
-            setThreadId(newThreadId);
-            const welcomeMsg = { id: crypto.randomUUID(), type: 'bot', content: welcomeText, timestamp: new Date() };
-            setMessages([welcomeMsg]);
-            setThreadsCache(prev => ({ ...prev, [newThreadId]: [welcomeMsg] }));
-          }
-        } else {
-          // No history — initialize welcome thread
-          const newThreadId = crypto.randomUUID();
-          setThreadId(newThreadId);
-          const welcomeMsg = { id: crypto.randomUUID(), type: 'bot', content: welcomeText, timestamp: new Date() };
-          setMessages([welcomeMsg]);
-          setThreadsCache(prev => ({ ...prev, [newThreadId]: [welcomeMsg] }));
-        }
-      } catch (error) {
-        console.error('Error loading chat history on init:', error);
+      // If we already loaded this thread from cache and have messages, don't refetch
+      if (
+        savedThread === latest.thread_id &&
+        threadsCache[latest.thread_id] &&
+        threadsCache[latest.thread_id].length > 0
+      ) {
+        // We already have it in UI, just ensure threadId is correct
+        setThreadId(latest.thread_id);
+        return;
+      }
+
+      // Otherwise load messages from backend for latest
+      const msgsResp = await axios.post(
+        "http://127.0.0.1:8000/get_thread_messages",
+        { thread_id: latest.thread_id }
+      );
+
+      const loadedMessages = msgsResp.data.messages.map((msg) => ({
+        id: crypto.randomUUID(),
+        type: msg.role === "user" ? "user" : "bot",
+        content: msg.content,
+        timestamp: new Date(msg.timestamp),
+      }));
+
+      setThreadId(latest.thread_id);
+      setMessages(loadedMessages);
+      setThreadsCache((prev) => ({
+        ...prev,
+        [latest.thread_id]: loadedMessages,
+      }));
+    } catch (error) {
+      console.error("Error loading chat history on init:", error);
+
+      // If we already showed something from cache, keep it;
+      // otherwise create a fresh welcome thread
+      if (!savedThread) {
         const newThreadId = crypto.randomUUID();
         setThreadId(newThreadId);
-        const welcomeMsg = { id: crypto.randomUUID(), type: 'bot', content: welcomeText, timestamp: new Date() };
+        const welcomeMsg = {
+          id: crypto.randomUUID(),
+          type: "bot",
+          content: welcomeText,
+          timestamp: new Date(),
+        };
         setMessages([welcomeMsg]);
-        setThreadsCache(prev => ({ ...prev, [newThreadId]: [welcomeMsg] }));
+        setThreadsCache((prev) => ({
+          ...prev,
+          [newThreadId]: [welcomeMsg],
+        }));
       }
-    };
-const savedCache = localStorage.getItem("LARA_CACHE");
-if (savedCache) {
-  setThreadsCache(JSON.parse(savedCache));
-}
-const savedLoading = localStorage.getItem("LARA_LOADING");
-if (savedLoading) {
-  setLoadingThreads(JSON.parse(savedLoading));
-}
+    }
+  })();
+}, [user]); // <= keep this dependency
 
-const savedThread = localStorage.getItem("LARA_CURRENT_THREAD");
-if (savedThread) {
-  setThreadId(savedThread);
-}
-
-    init();
-  }, [user]);
 useEffect(() => {
   localStorage.setItem("LARA_CACHE", JSON.stringify(threadsCache));
 }, [threadsCache]);
@@ -133,6 +219,24 @@ useEffect(() => {
     localStorage.setItem("LARA_CURRENT_THREAD", threadId);
   }
 }, [threadId]);
+
+// 🔥 Restore messages UI after refresh
+useEffect(() => {
+  if (!threadId) return;
+
+  const cached = threadsCache[threadId];
+  if (cached && cached.length > 0) {
+    setMessages(cached);      // Restore full chat
+  }
+
+  // If thread was loading before refresh → keep loader visible
+  if (loadingThreads.includes(threadId)) {
+    const cachedMsgs = threadsCache[threadId] || [];
+    setMessages(cachedMsgs); // show cached + loader
+  }
+
+}, [threadId, threadsCache, loadingThreads]);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -196,6 +300,7 @@ useEffect(() => {
         user_query: currentQuery,
         role: userRole,
         thread_id: submissionThreadId,
+        user_id: user.id
       });
 
       const botMessage = {
@@ -270,6 +375,9 @@ useEffect(() => {
 
  const handleThreadSelect = async (newThreadId) => {
   // Switch active thread
+  // Stop any wrong future UI update
+const current = newThreadId;
+
   setThreadId(newThreadId);
   setCurrentThreadFilter(null);
   setOptimisticThread(null);

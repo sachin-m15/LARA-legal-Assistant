@@ -6,11 +6,13 @@ from datetime import datetime
 DB_PATH = os.path.join(os.path.dirname(__file__), 'chat_history.db')
 
 def init_db():
-    """Initialize the database and create tables if they don't exist."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # Create threads table
+    # ENABLE WAL MODE
+    cursor.execute("PRAGMA journal_mode=WAL;")
+    cursor.execute("PRAGMA synchronous=NORMAL;")
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS threads (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,7 +24,6 @@ def init_db():
         )
     ''')
 
-    # Create messages table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,13 +38,14 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 def save_thread(user_id: str, thread_id: str, title: str = None):
     """Save or update a thread."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('''
-        INSERT OR REPLACE INTO threads (thread_id, user_id, title, updated_at)
+        INSERT OR IGNORE INTO threads (thread_id, user_id, title, updated_at)
         VALUES (?, ?, ?, ?)
     ''', (thread_id, user_id, title or f"Chat {datetime.now().strftime('%Y-%m-%d %H:%M')}", datetime.now()))
 
