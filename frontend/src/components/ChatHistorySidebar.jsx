@@ -3,48 +3,82 @@ import { History, MessageSquare, Trash2, Plus, X } from 'lucide-react';
 import axios from 'axios';
 import { useUser } from '@clerk/clerk-react';
 
-function ChatHistorySidebar({ isOpen, onClose, onThreadSelect, currentThreadId, currentThreadFilter }) {
+function ChatHistorySidebar({ isOpen, onClose, onThreadSelect, currentThreadId, currentThreadFilter, refreshTrigger, optimisticThread }) {
   const [threads, setThreads] = useState([]);
   const [loading, setLoading] = useState(false);
   const { user } = useUser();
 
   useEffect(() => {
     if (isOpen && user) {
+        // 1) Load threads instantly from cache BEFORE backend fetch
+const cached = localStorage.getItem("LARA_SIDEBAR_THREADS");
+if (cached) {
+  try {
+    const parsed = JSON.parse(cached);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      setThreads(parsed);   // SHOW IMMEDIATELY (prevents blank / loading)
+    }
+  } catch {}
+}
+
+      // If there's an optimistic thread, ensure it's visible immediately while we fetch.
+      if (optimisticThread) {
+        setThreads(prev => {
+          const filtered = prev.filter(t => t.thread_id !== optimisticThread.thread_id);
+return [optimisticThread, ...filtered];
+        });
+      }
+    
       fetchChatHistory();
     }
-  }, [isOpen, user, currentThreadFilter]);
+  }, [isOpen, user, refreshTrigger, optimisticThread]);
 
-  const fetchChatHistory = async () => {
-    if (!user) return;
-    try {
-      const response = await axios.post('http://127.0.0.1:8000/get_chat_history', {
-        user_id: user.id
-      });
-      setThreads(response.data.threads);
-    } catch (error) {
-      console.error('Error fetching chat history:', error);
+ const fetchChatHistory = async () => {
+  if (!user) return;
+  setLoading(true);
+
+  try {
+    const response = await axios.post('http://127.0.0.1:8000/get_chat_history', {
+      user_id: user.id
+    });
+
+    let serverThreads = response.data.threads || [];
+
+    // Merge optimistic thread
+    if (
+      optimisticThread &&
+      !serverThreads.some(t => t.thread_id === optimisticThread.thread_id)
+    ) {
+      serverThreads = [optimisticThread, ...serverThreads];
     }
-  };
 
-  const handleThreadSelect = async (thread) => {
-    try {
-      const response = await axios.post('http://127.0.0.1:8000/get_thread_messages', {
-        thread_id: thread.thread_id
-      });
+    setThreads(prev => {
+      if (serverThreads.length === 0) {
+        return prev; // never let UI go empty
+      }
+      return serverThreads;
+    });
 
-      const messages = response.data.messages.map(msg => ({
-        id: crypto.randomUUID(),
-        type: msg.role === 'user' ? 'user' : 'bot',
-        content: msg.content,
-        timestamp: new Date(msg.timestamp)
-      }));
-
-      onThreadSelect(thread.thread_id, messages);
-      onClose();
-    } catch (error) {
-      console.error('Error loading thread:', error);
+    // ⭐⭐⭐ VERY IMPORTANT ⭐⭐⭐
+    // SAVE LATEST HISTORY TO LOCALSTORAGE
+    if (serverThreads.length > 0) {
+      localStorage.setItem("LARA_SIDEBAR_THREADS", JSON.stringify(serverThreads));
     }
-  };
+
+  } catch (error) {
+    console.error('Error fetching chat history:', error);
+    // preserve old UI
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+ const handleThreadSelect = (thread) => {
+  onThreadSelect(thread.thread_id);
+  onClose();
+};
+
 
   const handleDeleteThread = async (threadId, e) => {
     e.stopPropagation();
@@ -57,9 +91,11 @@ function ChatHistorySidebar({ isOpen, onClose, onThreadSelect, currentThreadId, 
   };
 
   const handleNewChat = () => {
-    onThreadSelect(crypto.randomUUID(), []);
-    onClose();
-  };
+  const newId = crypto.randomUUID();
+  onThreadSelect(newId);   // parent will handle messages and cache
+  onClose();
+};
+
 
   return (
     <>
@@ -103,46 +139,55 @@ function ChatHistorySidebar({ isOpen, onClose, onThreadSelect, currentThreadId, 
 
           {/* Threads List */}
           <div className="flex-1 overflow-y-auto">
-            {threads.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-8 text-gray-500">
-                <MessageSquare className="w-12 h-12 mb-4 opacity-50" />
-                <p className="text-center">No chat history yet</p>
-                <p className="text-sm text-center mt-2">Start a new conversation to see it here</p>
-              </div>
-            ) : (
-              <div className="p-4 space-y-2">
-                {threads
-                  .filter(thread => !currentThreadFilter || thread.thread_id === currentThreadFilter)
-                  .map((thread) => (
-                  <div
-                    key={thread.thread_id}
-                    onClick={() => handleThreadSelect(thread)}
-                    className={`group relative p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
-                      thread.thread_id === currentThreadId
-                        ? 'bg-gradient-to-r from-gray-100 to-gray-200 border-gray-300 shadow-md'
-                        : 'bg-white hover:bg-gray-50 border-gray-200 hover:border-gray-300 hover:shadow-md'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-800 truncate">
-                          {thread.title || 'Untitled Chat'}
-                        </h3>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {new Date(thread.updated_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <button
-                        onClick={(e) => handleDeleteThread(thread.thread_id, e)}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all duration-200"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            {loading && threads.length === 0 ? (
+  // Loading state – show spinner instead of "no history"
+  <div className="flex flex-col items-center justify-center p-8 text-gray-500">
+    <MessageSquare className="w-12 h-12 mb-4 animate-pulse opacity-70" />
+    <p className="text-center">Loading your chat history...</p>
+  </div>
+) : threads.length === 0 ? (
+  // True empty state
+  <div className="flex flex-col items-center justify-center p-8 text-gray-500">
+    <MessageSquare className="w-12 h-12 mb-4 opacity-50" />
+    <p className="text-center">No chat history yet</p>
+    <p className="text-sm text-center mt-2">Start a new conversation to see it here</p>
+  </div>
+) : (
+  // Threads list
+  <div className="p-4 space-y-2">
+    {threads
+      .filter(thread => !currentThreadFilter || thread.thread_id === currentThreadFilter)
+      .map((thread) => (
+        <div
+          key={thread.thread_id}
+          onClick={() => handleThreadSelect(thread)}
+          className={`group relative p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
+            thread.thread_id === currentThreadId
+              ? 'bg-gradient-to-r from-gray-100 to-gray-200 border-gray-300 shadow-md'
+              : 'bg-white hover:bg-gray-50 border-gray-200 hover:border-gray-300 hover:shadow-md'
+          }`}
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-gray-800 truncate">
+                {thread.title || 'Untitled Chat'}
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {new Date(thread.updated_at).toLocaleDateString()}
+              </p>
+            </div>
+            <button
+              onClick={(e) => handleDeleteThread(thread.thread_id, e)}
+              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all duration-200"
+            >
+              <Trash2 className="w-4 h-4 text-red-500" />
+            </button>
+          </div>
+        </div>
+      ))}
+  </div>
+)}
+
           </div>
         </div>
       </div>

@@ -1,26 +1,27 @@
 from dotenv import load_dotenv
 from agent.citizen_agent import app as citizen_app
 from agent.lawyer_agent import lawyer_app as lawyer_app
-from db import save_message, get_thread_messages
+from db import get_thread_messages
 
 load_dotenv()
 
 
-# --- Routing Logic ---
 def route_query(role: str, user_query: str, thread_id: str):
     """
-    Routes the user's query to the correct agent based on their selected role.
+    Routes the user's query to the correct agent (citizen or lawyer)
+    and returns ONLY the new messages / final output.
 
-    Args:
-        role (str): The role selected by the user ("Common Citizen" or "Lawyer").
-        user_query (str): The user's input query.
-        thread_id (str): The unique identifier for the conversation thread.
-
-    Returns:
-        The response from the invoked agent.
+    IMPORTANT:
+    - This function must NOT save messages into the DB.
+    - Only /process_query should save user + bot messages.
     """
-    # Load existing chat history for the thread
+
+    # --------------------------------------------------------
+    # 1. Load existing messages from DB to build chat history
+    # --------------------------------------------------------
     existing_messages = get_thread_messages(thread_id)
+
+    # Convert database messages to the format the LLM agents expect
     chat_history = []
     for msg in existing_messages:
         if msg['role'] == 'user':
@@ -28,42 +29,39 @@ def route_query(role: str, user_query: str, thread_id: str):
         elif msg['role'] == 'bot':
             chat_history.append({"role": "assistant", "content": msg['content']})
 
-    # Create the initial state with the query and role
+    # --------------------------------------------------------
+    # 2. Build initial state for the agent
+    # --------------------------------------------------------
     input_state = {
         "query": user_query,
         "chat_history": chat_history,
         "intermediate_steps": [],
-        "role": role,  # <-- Pass the role into the state
+        "role": role,  # Pass the role to agent
     }
 
-    # Normalize role to avoid case-sensitivity issues between frontend and backend
-    normalized_role = (role or '').strip().lower()
+    # Normalize role
+    normalized_role = (role or "").strip().lower()
 
+    # --------------------------------------------------------
+    # 3. Route to the correct agent
+    # --------------------------------------------------------
     if normalized_role == "lawyer":
         print("Routing to Lawyer Agent...")
         result = lawyer_app.invoke(
-            input_state, config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
+            input_state,
+            config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
         )
-    elif normalized_role == "citizen":
+
+    else:  # default to citizen agent
         print("Routing to Citizen Agent...")
         result = citizen_app.invoke(
-            input_state, config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
-        )
-    else:
-        # If role is unrecognized, default to Citizen behavior but log a warning.
-        print(f"Warning: Unrecognized role '{role}' received. Defaulting to Citizen Agent.")
-        result = citizen_app.invoke(
-            input_state, config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
+            input_state,
+            config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
         )
 
-    # Save messages to database after processing
-    from db import save_message
-    for message in result.get('chat_history', []):
-      save_message(
-        thread_id,
-        message.get("role") or message.get("type", "assistant"),  # fallback
-        message.get("content", "")
-    )
-
+    # --------------------------------------------------------
+    # 4. IMPORTANT: Do NOT save messages here.
+    # Saving happens ONLY in process_query in app.py.
+    # --------------------------------------------------------
 
     return result
